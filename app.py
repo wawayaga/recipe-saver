@@ -1,3 +1,5 @@
+from html import escape
+
 import gradio as gr
 
 from database import get_all_recipes
@@ -14,6 +16,18 @@ def format_numbered_list(items):
     return "\n".join(f"{index}. {item}" for index, item in enumerate(items, start=1))
 
 
+def render_thumbnail_html(thumbnail_url):
+    if not thumbnail_url:
+        return ""
+
+    escaped_url = escape(thumbnail_url, quote=True)
+    return (
+        f'<img src="{escaped_url}" '
+        'style="width:100%; border-radius:8px; aspect-ratio:16/9; '
+        'object-fit:cover;">'
+    )
+
+
 def add_recipe(youtube_url):
     try:
         recipe = run_pipeline(youtube_url)
@@ -21,7 +35,7 @@ def add_recipe(youtube_url):
         gr.Warning(str(error))
         return (
             "",
-            None,
+            "",
             "",
             "",
             gr.update(visible=False),
@@ -33,7 +47,7 @@ def add_recipe(youtube_url):
 
     return (
         recipe["title"],
-        recipe["thumbnail_url"],
+        render_thumbnail_html(recipe["thumbnail_url"]),
         ingredients,
         steps,
         gr.update(visible=False),
@@ -156,13 +170,7 @@ def render_recipe_cards(recipes, search_text, current_page):
         recipe_key = recipe.get("id") or f"{current_page}-{index}"
         with gr.Accordion(label=title, open=False, key=f"recipe-{recipe_key}"):
             if thumbnail_url:
-                gr.Image(
-                    value=thumbnail_url,
-                    label="Thumbnail",
-                    show_label=False,
-                    height=180,
-                    buttons=["fullscreen"],
-                )
+                gr.HTML(render_thumbnail_html(thumbnail_url))
             if url:
                 gr.Markdown(f"[Open original video]({url})")
             gr.Textbox(
@@ -200,7 +208,7 @@ with gr.Blocks(theme='harsh8001/cartoon-style') as app:
 
         with gr.Group(visible=False) as recipe_result_group:
             title_output = gr.Textbox(label="Recipe title")
-            thumbnail_output = gr.Image(label="Thumbnail", buttons=["fullscreen"])
+            thumbnail_output = gr.HTML(label="Thumbnail")
             ingredients_output = gr.Textbox(label="Ingredients", lines=8)
             steps_output = gr.Textbox(label="Steps", lines=8)
 
