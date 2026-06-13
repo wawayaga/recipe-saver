@@ -10,6 +10,39 @@ image = modal.Image.debian_slim().apt_install("ffmpeg").pip_install(
 )
 
 
+@modal_app.function(image=image, timeout=1800)
+def download_audio(youtube_url):
+    from pathlib import Path
+
+    import yt_dlp
+
+    audio_path = Path("temp_audio.mp3")
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": "temp_audio.%(ext)s",
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }
+        ],
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            video_info = ydl.extract_info(youtube_url, download=True)
+
+        return (
+            audio_path.read_bytes(),
+            video_info.get("title", "Untitled recipe"),
+            video_info["id"],
+        )
+    finally:
+        if audio_path.exists():
+            audio_path.unlink()
+
+
 @modal_app.function(image=image, gpu="A10G", timeout=1800)
 def transcribe(audio_path):
     import tempfile
