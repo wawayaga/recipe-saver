@@ -270,4 +270,4 @@ with gr.Blocks(theme='harsh8001/cartoon-style') as app:
         )
 
 
-app.launch(server_port=8100, css=css)
+app.launch(css=css)
