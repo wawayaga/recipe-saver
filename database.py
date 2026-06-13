@@ -26,6 +26,11 @@ def save_recipe(title, ingredients, steps, url, thumbnail_url):
     return response.data
 
 
+def recipe_exists(url):
+    response = supabase.table("recipes").select("id").eq("url", url).limit(1).execute()
+    return len(response.data) > 0
+
+
 def get_all_recipes():
     response = supabase.table("recipes").select("*").order("created_at", desc=True).execute()
     return response.data

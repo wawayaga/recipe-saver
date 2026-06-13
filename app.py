@@ -15,7 +15,19 @@ def format_numbered_list(items):
 
 
 def add_recipe(youtube_url):
-    recipe = run_pipeline(youtube_url)
+    try:
+        recipe = run_pipeline(youtube_url)
+    except ValueError as error:
+        gr.Warning(str(error))
+        return (
+            "",
+            None,
+            "",
+            "",
+            gr.update(visible=False),
+            gr.update(visible=False),
+        )
+
     ingredients = format_numbered_list(recipe["ingredients"])
     steps = format_numbered_list(recipe["steps"])
 
@@ -149,6 +161,7 @@ def render_recipe_cards(recipes, search_text, current_page):
                     label="Thumbnail",
                     show_label=False,
                     height=180,
+                    buttons=["fullscreen"],
                 )
             if url:
                 gr.Markdown(f"[Open original video]({url})")
@@ -187,7 +200,7 @@ with gr.Blocks(theme='harsh8001/cartoon-style') as app:
 
         with gr.Group(visible=False) as recipe_result_group:
             title_output = gr.Textbox(label="Recipe title")
-            thumbnail_output = gr.Image(label="Thumbnail")
+            thumbnail_output = gr.Image(label="Thumbnail", buttons=["fullscreen"])
             ingredients_output = gr.Textbox(label="Ingredients", lines=8)
             steps_output = gr.Textbox(label="Steps", lines=8)
 

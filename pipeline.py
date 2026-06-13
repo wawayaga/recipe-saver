@@ -4,7 +4,7 @@ import imageio_ffmpeg
 import modal
 import yt_dlp
 
-from database import save_recipe
+from database import recipe_exists, save_recipe
 
 
 TEMP_AUDIO_PATH = Path("temp_audio.mp3")
@@ -18,6 +18,9 @@ def get_modal_functions():
 
 
 def run_pipeline(youtube_url):
+    if recipe_exists(youtube_url):
+        raise ValueError("This recipe is already saved.")
+
     ydl_opts = {
         "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
         "format": "bestaudio/best",
