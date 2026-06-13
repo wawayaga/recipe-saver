@@ -14,13 +14,13 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def save_recipe(title, ingredients, steps, thumbnail_url, url):
+def save_recipe(title, ingredients, steps, url, thumbnail_url):
     recipe = {
         "title": title,
         "ingredients": ingredients,
         "steps": steps,
-        "thumbnail_url": thumbnail_url,
         "url": url,
+        "thumbnail_url": thumbnail_url,
     }
     response = supabase.table("recipes").insert(recipe).execute()
     return response.data
