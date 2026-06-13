@@ -72,6 +72,11 @@ def extract_recipe(transcript):
         "<s>[INST] Extract a recipe from the transcript below. "
         "Return only valid JSON with exactly these keys: "
         '"ingredients" (a list of strings) and "steps" (a list of strings). '
+        "For every ingredient, always include the quantity and unit in the same "
+        'string as the ingredient name when the transcript mentions one, such as '
+        '"100ml water", "500g flour", or "2 tablespoons olive oil". '
+        "Do not separate quantities, units, and ingredient names into different "
+        "fields or strings. "
         "Do not include markdown, comments, or any extra text.\n\n"
         f"Transcript:\n{transcript} [/INST]"
     )

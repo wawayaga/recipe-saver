@@ -1,9 +1,10 @@
-import html
-
 import gradio as gr
 
 from database import get_all_recipes
 from pipeline import run_pipeline
+
+
+PAGE_SIZE = 6
 
 
 def format_numbered_list(items):
@@ -21,111 +22,149 @@ def add_recipe(youtube_url):
     return recipe["title"], recipe["thumbnail_url"], ingredients, steps
 
 
-def render_recipe_cards():
+def load_recipes(search_text):
     recipes = get_all_recipes()
+    page = 1
+    previous_update, next_update = get_pagination_button_updates(
+        recipes,
+        search_text,
+        page,
+    )
+    return recipes, page, previous_update, next_update
+
+
+def filter_recipes(recipes, search_text):
+    search_text = (search_text or "").strip().lower()
+    if not search_text:
+        return recipes or []
+
+    return [
+        recipe
+        for recipe in recipes or []
+        if search_text in (recipe.get("title") or "").lower()
+    ]
+
+
+def get_total_pages(recipes):
     if not recipes:
-        return "<p>No recipes saved yet.</p>"
+        return 1
 
-    cards = []
-    for recipe in recipes:
-        title = html.escape(recipe.get("title") or "Untitled recipe")
-        url = html.escape(recipe.get("url") or "#", quote=True)
-        thumbnail_url = html.escape(recipe.get("thumbnail_url") or "", quote=True)
-        ingredients = recipe.get("ingredients") or []
-        steps = recipe.get("steps") or []
+    return max(1, (len(recipes) + PAGE_SIZE - 1) // PAGE_SIZE)
 
-        ingredient_items = "".join(
-            f"<li>{html.escape(str(ingredient))}</li>" for ingredient in ingredients
-        )
-        step_items = "".join(f"<li>{html.escape(str(step))}</li>" for step in steps)
 
-        cards.append(
-            f"""
-            <article class="recipe-card">
-                <img src="{thumbnail_url}" alt="{title}" class="recipe-thumbnail">
-                <div class="recipe-content">
-                    <h3>{title}</h3>
-                    <a href="{url}" target="_blank" rel="noopener noreferrer">{url}</a>
-                    <div class="recipe-columns">
-                        <section>
-                            <h4>Ingredients</h4>
-                            <ol>{ingredient_items}</ol>
-                        </section>
-                        <section>
-                            <h4>Steps</h4>
-                            <ol>{step_items}</ol>
-                        </section>
-                    </div>
-                </div>
-            </article>
-            """
-        )
+def clamp_page(page, total_pages):
+    return min(max(int(page or 1), 1), total_pages)
 
-    return f'<div class="recipe-grid">{"".join(cards)}</div>'
+
+def get_pagination_button_updates(recipes, search_text, page):
+    filtered_recipes = filter_recipes(recipes, search_text)
+    total_pages = get_total_pages(filtered_recipes)
+    page = clamp_page(page, total_pages)
+
+    return (
+        gr.update(interactive=page > 1),
+        gr.update(interactive=page < total_pages),
+    )
+
+
+def reset_search_page(recipes, search_text):
+    page = 1
+    previous_update, next_update = get_pagination_button_updates(
+        recipes,
+        search_text,
+        page,
+    )
+    return page, previous_update, next_update
+
+
+def go_to_previous_page(recipes, search_text, current_page):
+    filtered_recipes = filter_recipes(recipes, search_text)
+    page = clamp_page((current_page or 1) - 1, get_total_pages(filtered_recipes))
+    previous_update, next_update = get_pagination_button_updates(
+        recipes,
+        search_text,
+        page,
+    )
+    return page, previous_update, next_update
+
+
+def go_to_next_page(recipes, search_text, current_page):
+    filtered_recipes = filter_recipes(recipes, search_text)
+    page = clamp_page((current_page or 1) + 1, get_total_pages(filtered_recipes))
+    previous_update, next_update = get_pagination_button_updates(
+        recipes,
+        search_text,
+        page,
+    )
+    return page, previous_update, next_update
+
+
+def render_recipe_cards(recipes, search_text, current_page):
+    filtered_recipes = filter_recipes(recipes, search_text)
+    total_pages = get_total_pages(filtered_recipes)
+    current_page = clamp_page(current_page, total_pages)
+
+    if not recipes:
+        gr.Markdown("No recipes saved yet.")
+        return
+
+    if not filtered_recipes:
+        gr.Markdown("No recipes match your search.")
+        return
+
+    start_index = (current_page - 1) * PAGE_SIZE
+    page_recipes = filtered_recipes[start_index : start_index + PAGE_SIZE]
+
+    gr.Markdown(
+        f"Page {current_page} of {total_pages} - "
+        f"{len(filtered_recipes)} recipe{'s' if len(filtered_recipes) != 1 else ''}"
+    )
+
+    for index, recipe in enumerate(page_recipes):
+        title = recipe.get("title") or "Untitled recipe"
+        thumbnail_url = recipe.get("thumbnail_url") or None
+        url = recipe.get("url") or ""
+        ingredients = format_numbered_list(recipe.get("ingredients") or [])
+        steps = format_numbered_list(recipe.get("steps") or [])
+
+        recipe_key = recipe.get("id") or f"{current_page}-{index}"
+        with gr.Accordion(label=title, open=False, key=f"recipe-{recipe_key}"):
+            if thumbnail_url:
+                gr.Image(
+                    value=thumbnail_url,
+                    label="Thumbnail",
+                    show_label=False,
+                    height=180,
+                )
+            if url:
+                gr.Markdown(f"[Open original video]({url})")
+            gr.Textbox(
+                label="Ingredients",
+                value=ingredients,
+                lines=8,
+                max_lines=8,
+                elem_classes="scrollable-recipe-text",
+            )
+            gr.Textbox(
+                label="Steps",
+                value=steps,
+                lines=8,
+                max_lines=8,
+                elem_classes="scrollable-recipe-text",
+            )
 
 
 css = """
-.recipe-grid {
-    display: grid;
-    gap: 16px;
-}
-
-.recipe-card {
-    display: grid;
-    grid-template-columns: minmax(180px, 260px) 1fr;
-    gap: 16px;
-    padding: 14px;
-    border: 1px solid #d8dde6;
-    border-radius: 8px;
-    background: #ffffff;
-}
-
-.recipe-thumbnail {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    object-fit: cover;
-    border-radius: 6px;
-    background: #eef1f5;
-}
-
-.recipe-content h3 {
-    margin: 0 0 6px;
-    font-size: 18px;
-}
-
-.recipe-content a {
-    display: inline-block;
-    margin-bottom: 12px;
-    overflow-wrap: anywhere;
-}
-
-.recipe-columns {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.recipe-columns h4 {
-    margin: 0 0 6px;
-    font-size: 14px;
-}
-
-.recipe-columns ol {
-    margin: 0;
-    padding-left: 20px;
-}
-
-@media (max-width: 720px) {
-    .recipe-card,
-    .recipe-columns {
-        grid-template-columns: 1fr;
-    }
+.scrollable-recipe-text textarea {
+    max-height: 220px;
+    overflow-y: auto !important;
+    resize: vertical;
 }
 """
 
 
-with gr.Blocks() as app:
-    gr.Markdown("# Recipe Saver")
+with gr.Blocks(theme='harsh8001/cartoon-style') as app:
+    gr.Markdown("# The Recipe Archive")
 
     with gr.Tab("Add Recipe"):
         youtube_url_input = gr.Textbox(label="YouTube URL")
@@ -148,13 +187,49 @@ with gr.Blocks() as app:
         )
 
     with gr.Tab("My Recipes"):
+        search_input = gr.Textbox(
+            label="Search recipes",
+            placeholder="Search by title",
+        )
         load_recipes_button = gr.Button("Load recipes")
-        recipes_output = gr.HTML()
+        recipes_state = gr.State([])
+        current_page_state = gr.State(1)
+
+        @gr.render(inputs=[recipes_state, search_input, current_page_state])
+        def render_saved_recipes(recipes, search_text, current_page):
+            render_recipe_cards(recipes, search_text, current_page)
+
+        with gr.Row():
+            previous_button = gr.Button("Previous", interactive=False)
+            next_button = gr.Button("Next", interactive=False)
 
         load_recipes_button.click(
-            fn=render_recipe_cards,
-            inputs=None,
-            outputs=recipes_output,
+            fn=load_recipes,
+            inputs=search_input,
+            outputs=[
+                recipes_state,
+                current_page_state,
+                previous_button,
+                next_button,
+            ],
+        )
+
+        search_input.change(
+            fn=reset_search_page,
+            inputs=[recipes_state, search_input],
+            outputs=[current_page_state, previous_button, next_button],
+        )
+
+        previous_button.click(
+            fn=go_to_previous_page,
+            inputs=[recipes_state, search_input, current_page_state],
+            outputs=[current_page_state, previous_button, next_button],
+        )
+
+        next_button.click(
+            fn=go_to_next_page,
+            inputs=[recipes_state, search_input, current_page_state],
+            outputs=[current_page_state, previous_button, next_button],
         )
 
 

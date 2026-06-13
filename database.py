@@ -27,5 +27,5 @@ def save_recipe(title, ingredients, steps, url, thumbnail_url):
 
 
 def get_all_recipes():
-    response = supabase.table("recipes").select("*").execute()
+    response = supabase.table("recipes").select("*").order("created_at", desc=True).execute()
     return response.data
