@@ -4,4 +4,3 @@ supabase
 python-dotenv
 huggingface_hub
 openai
-youtube-transcript-api

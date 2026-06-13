@@ -4,9 +4,9 @@ from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import urlopen
 
 import modal
-from youtube_transcript_api import YouTubeTranscriptApi
 
 from database import recipe_exists, save_recipe
+from modal_app import get_transcript
 
 
 MODAL_APP_NAME = "recipe-saver"
@@ -49,18 +49,6 @@ def get_video_title(youtube_url):
     return data.get("title") or "Untitled recipe"
 
 
-def fetch_transcript(video_id):
-    transcript_api = YouTubeTranscriptApi()
-
-    if hasattr(transcript_api, "fetch"):
-        transcript = transcript_api.fetch(video_id)
-        snippets = transcript.to_raw_data()
-    else:
-        snippets = YouTubeTranscriptApi.get_transcript(video_id)
-
-    return " ".join(snippet["text"] for snippet in snippets)
-
-
 def run_pipeline(youtube_url):
     if recipe_exists(youtube_url):
         raise ValueError("This recipe is already saved.")
@@ -69,7 +57,7 @@ def run_pipeline(youtube_url):
     title = get_video_title(youtube_url)
     thumbnail_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
 
-    transcript = fetch_transcript(video_id)
+    transcript = get_transcript.remote(youtube_url)
     extract_recipe = get_modal_functions()
     recipe = extract_recipe.remote(transcript)
     ingredients = recipe["ingredients"]

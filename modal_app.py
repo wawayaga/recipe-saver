@@ -10,6 +10,32 @@ image = modal.Image.debian_slim().apt_install("ffmpeg").pip_install(
 )
 
 
+@modal_app.function(image=image, timeout=1800)
+def get_transcript(youtube_url):
+    from urllib.parse import parse_qs, urlparse
+
+    from youtube_transcript_api import YouTubeTranscriptApi
+
+    parsed_url = urlparse(youtube_url)
+    host = parsed_url.netloc.removeprefix("www.")
+
+    if host == "youtu.be":
+        video_id = parsed_url.path.strip("/").split("/")[0]
+    elif parsed_url.path == "/watch":
+        video_id = parse_qs(parsed_url.query).get("v", [""])[0]
+    elif parsed_url.path.startswith(("/shorts/", "/embed/")):
+        video_id = parsed_url.path.strip("/").split("/")[1]
+    else:
+        video_id = ""
+
+    if not video_id:
+        raise ValueError("Could not determine the YouTube video id from the URL.")
+
+    transcript = YouTubeTranscriptApi().fetch(video_id)
+    snippets = transcript.to_raw_data()
+    return " ".join(snippet["text"] for snippet in snippets)
+
+
 @modal_app.function(
     image=image,
     gpu="A10G",
