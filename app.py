@@ -19,7 +19,21 @@ def add_recipe(youtube_url):
     ingredients = format_numbered_list(recipe["ingredients"])
     steps = format_numbered_list(recipe["steps"])
 
-    return recipe["title"], recipe["thumbnail_url"], ingredients, steps
+    return (
+        recipe["title"],
+        recipe["thumbnail_url"],
+        ingredients,
+        steps,
+        gr.update(visible=False),
+        gr.update(visible=True),
+    )
+
+
+def show_processing_status():
+    return gr.update(
+        value="Processing... this may take a minute while we transcribe and analyse the video.",
+        visible=True,
+    )
 
 
 def load_recipes(search_text):
@@ -169,13 +183,20 @@ with gr.Blocks(theme='harsh8001/cartoon-style') as app:
     with gr.Tab("Add Recipe"):
         youtube_url_input = gr.Textbox(label="YouTube URL")
         submit_button = gr.Button("Submit", variant="primary")
+        status_output = gr.Markdown(visible=False)
 
-        title_output = gr.Textbox(label="Recipe title")
-        thumbnail_output = gr.Image(label="Thumbnail")
-        ingredients_output = gr.Textbox(label="Ingredients", lines=8)
-        steps_output = gr.Textbox(label="Steps", lines=8)
+        with gr.Group(visible=False) as recipe_result_group:
+            title_output = gr.Textbox(label="Recipe title")
+            thumbnail_output = gr.Image(label="Thumbnail")
+            ingredients_output = gr.Textbox(label="Ingredients", lines=8)
+            steps_output = gr.Textbox(label="Steps", lines=8)
 
         submit_button.click(
+            fn=show_processing_status,
+            inputs=None,
+            outputs=status_output,
+            show_progress="full",
+        ).then(
             fn=add_recipe,
             inputs=youtube_url_input,
             outputs=[
@@ -183,7 +204,10 @@ with gr.Blocks(theme='harsh8001/cartoon-style') as app:
                 thumbnail_output,
                 ingredients_output,
                 steps_output,
+                status_output,
+                recipe_result_group,
             ],
+            show_progress="full",
         )
 
     with gr.Tab("My Recipes"):
