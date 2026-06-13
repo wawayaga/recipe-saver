@@ -6,15 +6,20 @@ from urllib.request import urlopen
 import modal
 
 from database import recipe_exists, save_recipe
-from modal_app import get_transcript
 
 
 MODAL_APP_NAME = "recipe-saver"
 
 
+def lookup_modal_function(function_name):
+    lookup = getattr(modal.Function, "lookup", modal.Function.from_name)
+    return lookup(MODAL_APP_NAME, function_name)
+
+
 def get_modal_functions():
-    extract_recipe = modal.Function.from_name(MODAL_APP_NAME, "extract_recipe")
-    return extract_recipe
+    get_transcript = lookup_modal_function("get_transcript")
+    extract_recipe = lookup_modal_function("extract_recipe")
+    return get_transcript, extract_recipe
 
 
 def get_youtube_video_id(youtube_url):
@@ -57,9 +62,10 @@ def run_pipeline(youtube_url):
     title = get_video_title(youtube_url)
     thumbnail_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
 
-    transcript = get_transcript.remote(youtube_url)
-    extract_recipe = get_modal_functions()
-    recipe = extract_recipe.remote(transcript)
+    with modal.enable_output():
+        get_transcript, extract_recipe = get_modal_functions()
+        transcript = get_transcript.remote(youtube_url)
+        recipe = extract_recipe.remote(transcript)
     ingredients = recipe["ingredients"]
     steps = recipe["steps"]
 
