@@ -191,7 +191,7 @@ css = """
 
 
 with gr.Blocks(theme='harsh8001/cartoon-style') as app:
-    gr.Markdown("# The Recipe Archive")
+    gr.Markdown("# The Recipe Exctractor")
 
     with gr.Tab("Add Recipe"):
         youtube_url_input = gr.Textbox(label="YouTube URL")
