@@ -131,7 +131,7 @@ def render_recipe_cards(recipes, search_text, current_page):
     current_page = clamp_page(current_page, total_pages)
 
     if not recipes:
-        gr.Markdown("No recipes saved yet.")
+        gr.Markdown("Load some recipes to display.")
         return
 
     if not filtered_recipes:
