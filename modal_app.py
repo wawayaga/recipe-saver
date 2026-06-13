@@ -6,73 +6,8 @@ image = modal.Image.debian_slim().apt_install("ffmpeg").pip_install(
     "torch",
     "transformers",
     "huggingface_hub",
-    "yt-dlp"
+    "youtube-transcript-api",
 )
-
-
-@modal_app.function(image=image, timeout=1800)
-def download_audio(youtube_url):
-    from pathlib import Path
-
-    import yt_dlp
-
-    audio_path = Path("temp_audio.mp3")
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": "temp_audio.%(ext)s",
-        "postprocessors": [
-            {
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }
-        ],
-    }
-
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            video_info = ydl.extract_info(youtube_url, download=True)
-
-        return (
-            audio_path.read_bytes(),
-            video_info.get("title", "Untitled recipe"),
-            video_info["id"],
-        )
-    finally:
-        if audio_path.exists():
-            audio_path.unlink()
-
-
-@modal_app.function(image=image, gpu="A10G", timeout=1800)
-def transcribe(audio_path):
-    import tempfile
-
-    import torch
-    from transformers import pipeline
-
-    if isinstance(audio_path, bytes):
-        with tempfile.NamedTemporaryFile(suffix=".mp3") as audio_file:
-            audio_file.write(audio_path)
-            audio_file.flush()
-            audio_path = audio_file.name
-
-            pipe = pipeline(
-                "automatic-speech-recognition",
-                model="openai/whisper-large-v3",
-                torch_dtype=torch.float16,
-                device=0,
-            )
-            result = pipe(audio_path, chunk_length_s=30, return_timestamps=False)
-            return result["text"]
-
-    pipe = pipeline(
-        "automatic-speech-recognition",
-        model="openai/whisper-large-v3",
-        torch_dtype=torch.float16,
-        device=0,
-    )
-    result = pipe(audio_path, chunk_length_s=30, return_timestamps=False)
-    return result["text"]
 
 
 @modal_app.function(

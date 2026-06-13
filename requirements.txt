@@ -1,9 +1,7 @@
 gradio
 modal
-yt-dlp
 supabase
 python-dotenv
 huggingface_hub
 openai
-imageio-ffmpeg
-pydub
+youtube-transcript-api

@@ -43,7 +43,7 @@ def add_recipe(youtube_url):
 
 def show_processing_status():
     return gr.update(
-        value="Processing... this may take a minute while we transcribe and analyse the video.",
+        value="Processing... this may take a minute while we fetch and analyse the transcript.",
         visible=True,
     )
 
