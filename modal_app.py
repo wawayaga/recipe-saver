@@ -2,7 +2,7 @@ import modal
 
 modal_app = modal.App("recipe-saver")
 
-image = modal.Image.debian_slim().pip_install(
+image = modal.Image.debian_slim().apt_install("ffmpeg").pip_install(
     "torch",
     "transformers",
     "huggingface_hub",
@@ -10,10 +10,27 @@ image = modal.Image.debian_slim().pip_install(
 )
 
 
-@modal_app.function(image=image, gpu="A10G")
+@modal_app.function(image=image, gpu="A10G", timeout=1800)
 def transcribe(audio_path):
+    import tempfile
+
     import torch
     from transformers import pipeline
+
+    if isinstance(audio_path, bytes):
+        with tempfile.NamedTemporaryFile(suffix=".mp3") as audio_file:
+            audio_file.write(audio_path)
+            audio_file.flush()
+            audio_path = audio_file.name
+
+            pipe = pipeline(
+                "automatic-speech-recognition",
+                model="openai/whisper-large-v3",
+                torch_dtype=torch.float16,
+                device=0,
+            )
+            result = pipe(audio_path, chunk_length_s=30, return_timestamps=False)
+            return result["text"]
 
     pipe = pipeline(
         "automatic-speech-recognition",
@@ -21,11 +38,16 @@ def transcribe(audio_path):
         torch_dtype=torch.float16,
         device=0,
     )
-    result = pipe(audio_path, return_timestamps=False)
+    result = pipe(audio_path, chunk_length_s=30, return_timestamps=False)
     return result["text"]
 
 
-@modal_app.function(image=image, gpu="A10G", secrets=[modal.Secret.from_name("huggingface-secret")])
+@modal_app.function(
+    image=image,
+    gpu="A10G",
+    timeout=1800,
+    secrets=[modal.Secret.from_name("huggingface-secret")],
+)
 def extract_recipe(transcript):
     import json
     import os
